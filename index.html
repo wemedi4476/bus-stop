@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>巴士站 STOP ID 查詢工具</title>
+
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Alpine.js (CDN) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800" x-data="stopFinder()" x-cloak>
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <header class="mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+        🚌 巴士站 STOP ID 查詢工具
+      </h1>
+      <p class="mt-1 text-sm text-slate-500">
+        支援九巴 (KMB) 巴士站，資料來源：
+        <a class="text-blue-600 underline"
+           href="https://data.gov.hk/"
+           target="_blank" rel="noopener">data.gov.hk</a>
+        <span class="mx-1">·</span>
+        以站名搜尋並取得對應的 STOP ID
+      </p>
+    </header>
+
+    <!-- Status bar -->
+    <div class="mb-4 rounded-lg border p-3 text-sm shadow-sm"
+         :class="{
+           'bg-amber-50 border-amber-200 text-amber-700': status === 'loading',
+           'bg-green-50 border-green-200 text-green-700': status === 'ready',
+           'bg-red-50 border-red-200 text-red-700': status === 'error',
+           'bg-slate-50 border-slate-200 text-slate-600': status === 'idle'
+         }">
+      <template x-if="status === 'loading'">
+        <p class="flex items-center gap-2">
+          <span class="inline-block w-4 h-4 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></span>
+          <span>正在下載九巴巴士站資料 (<span x-text="loadedCount"></span> 個)…</span>
+        </p>
+      </template>
+      <template x-if="status === 'ready'">
+        <p>
+          ✅ 已載入 <b x-text="all.length"></b> 個九巴巴士站 —
+          在下方輸入站名即時搜尋。可輸入繁體 / 簡體 / 英文關鍵字。
+        </p>
+      </template>
+      <template x-if="status === 'error'">
+        <p>⚠️ <span x-text="error"></span></p>
+      </template>
+    </div>
+
+    <!-- Search box -->
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+      <label for="q" class="block text-sm font-medium text-slate-600 mb-1">
+        搜尋巴士站名稱
+      </label>
+      <div class="flex gap-2">
+        <input id="q" type="text"
+               x-model="q"
+               placeholder="例如：中環、Central、四美街、竹園…"
+               class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-400"
+        />
+        <button @click="clearQuery()"
+                class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium text-sm">
+          清除
+        </button>
+      </div>
+      <p class="mt-2 text-xs text-slate-400">
+        顯示 <b><span x-text="results.length"></span></b> / <b><span x-text="all.length"></span></b> 個結果
+      </p>
+    </div>
+
+    <!-- Results -->
+    <template x-if="status === 'ready' && q.trim() === ''">
+      <div class="bg-white rounded-xl shadow p-4 text-center text-sm text-slate-400">
+        ← 請輸入巴士站名稱開始搜尋
+      </div>
+    </template>
+
+    <template x-if="status === 'ready' && q.trim() !== '' && results.length === 0">
+      <div class="bg-white rounded-xl shadow p-8 text-center text-slate-500">
+        <p class="text-3xl mb-2">🔍</p>
+        <p>找不到符合「<b x-text="q"></b>」的巴士站，請試試其他關鍵字。</p>
+      </div>
+    </template>
+
+    <div class="grid gap-3 md:grid-cols-2">
+      <template x-for="s in results" :key="s.stop">
+        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500 hover:shadow-md transition">
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="font-semibold text-slate-900 leading-snug" x-text="s.name_tc"></h3>
+            <button @click="copy(s.stop)"
+                    class="shrink-0 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 font-medium"
+                    title="複製 STOP ID"
+                    x-text="copied === s.stop ? '✓ 已複製' : '複製'">
+            </button>
+          </div>
+          <p class="text-sm text-slate-500" x-text="s.name_en"></p>
+          <p class="text-xs text-slate-400" x-text="'簡體：' + s.name_sc"></p>
+          <div class="mt-2 flex items-center gap-2 text-xs font-mono">
+            <span class="bg-slate-100 rounded px-2 py-1 text-slate-700">STOP ID: <b x-text="s.stop"></b></span>
+            <span class="text-slate-400" x-text="'(' + s.lat + ', ' + s.long + ')'"></span>
+          </div>
+          <a :href="'https://www.google.com/maps?q=' + s.lat + ',' + s.long"
+             target="_blank" rel="noopener"
+             class="mt-2 inline-block text-xs text-blue-600 underline">
+            在地圖上查看 →
+          </a>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <script>
+    function stopFinder() {
+      return {
+        status: 'idle',       // idle | loading | ready | error
+        error: '',
+        all: [],
+        q: '',
+        copied: null,
+        loadedCount: 0,
+
+        get results() {
+          const kw = this.q.trim().toLowerCase();
+          if (!kw) return [];
+          return this.all.filter(s => {
+            return (s.name_tc && s.name_tc.toLowerCase().includes(kw))
+                || (s.name_sc && s.name_sc.toLowerCase().includes(kw))
+                || (s.name_en && s.name_en.toLowerCase().includes(kw));
+          }).slice(0, 200);
+        },
+
+        async init() {
+          this.status = 'loading';
+          try {
+            const res = await fetch('https://data.etabus.gov.hk/v1/transport/kmb/stop', {
+              headers: { 'Accept': 'application/json' }
+            });
+            if (!res.ok) throw new Error('伺服器回傳錯誤：HTTP ' + res.status);
+            const json = await res.json();
+            // Stream count display
+            const data = json.data || [];
+            this.all = data.map(d => ({
+              stop: d.stop,
+              name_tc: d.name_tc || '',
+              name_sc: d.name_sc || '',
+              name_en: d.name_en || '',
+              lat: d.lat || '',
+              long: d.long || ''
+            }));
+            this.loadedCount = this.all.length;
+            this.status = 'ready';
+          } catch (e) {
+            this.error = '無法載入巴士站資料：' + e.message +
+              '。請確認網絡連線，然後重新整理頁面重試。'
+              + '（資料來源：https://data.etabus.gov.hk/v1/transport/kmb/stop）';
+            this.status = 'error';
+          }
+        },
+
+        clearQuery() {
+          this.q = '';
+        },
+
+        async copy(text) {
+          try {
+            await navigator.clipboard.writeText(text);
+            this.copied = text;
+            setTimeout(() => { if (this.copied === text) this.copied = null; }, 1500);
+          } catch (e) {
+            // Fallback for older browsers / non-secure contexts
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            this.copied = text;
+            setTimeout(() => { if (this.copied === text) this.copied = null; }, 1500);
+          }
+        }
+      };
+    }
+  </script>
+</body>
+</html>
