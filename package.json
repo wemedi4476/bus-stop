@@ -1,0 +1,12 @@
+{
+  "name": "bustop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "KMB bus stop STOP ID lookup + realtime ETA, backed by a local SQLite preprocessed from data.gov.hk",
+  "type": "commonjs",
+  "scripts": {
+    "build-db": "node scripts/build-db.js",
+    "start": "node server.js"
+  },
+  "dependencies": {}
+}

@@ -32,7 +32,7 @@
         <a class="text-blue-600 underline" href="https://data.gov.hk/" target="_blank" rel="noopener">data.gov.hk</a>
         API 取得該站所有途經路線的實時到站時間（九巴 KMB）。
         <span x-show="status === 'ready'" class="text-slate-400">
-          已載入站名資料 <b x-text="stopNameCount"></b> 個。
+          資料庫 <b x-text="stopNameCount"></b> 個站。
         </span>
       </p>
     </header>
@@ -117,7 +117,7 @@
   </div>
 
   <script>
-    const API = 'https://data.etabus.gov.hk/v1/transport/kmb';
+    const API_BASE = '/api';   // 本機 SQLite server（node server.js）
 
     async function fetchJson(url, attempts = 3) {
       let lastErr;
@@ -140,7 +140,6 @@
         stopId: '',
         stopName: '',
         stopNameCount: 0,
-        nameByStop: new Map(),     // stopId -> name_tc
         querying: false,
         error: '',
         empty: false,
@@ -148,15 +147,12 @@
         groups: [],
 
         async init() {
-          // 可選：載入 stop 列表做站名映射（失敗不阻斷查詢）
+          // 透過本機 SQLite server；資料在 server 端已預處理
+          this.status = 'ready';
           try {
-            const d = await fetchJson(API + '/stop');
-            for (const s of (d.data || [])) this.nameByStop.set(s.stop, s.name_tc || '');
-            this.stopNameCount = this.nameByStop.size;
-            this.status = 'ready';
-          } catch (e) {
-            this.status = 'ready';
-          }
+            const s = await fetchJson(API_BASE + '/stats');
+            this.stopNameCount = s.stops || 0;
+          } catch (e) { /* 忽略，不阻斷 */ }
         },
 
         async query() {
@@ -167,9 +163,16 @@
           this.empty = false;
           this.groups = [];
           this.queriedAt = '';
-          this.stopName = this.nameByStop.get(id) || '';
+          this.stopName = '';
           try {
-            const d = await fetchJson(API + '/stop-eta/' + encodeURIComponent(id), 3);
+            // 站名（best-effort，失敗不阻斷實時查詢）
+            try {
+              const info = await fetchJson(API_BASE + '/stop/' + encodeURIComponent(id), 2);
+              this.stopName = info.name_tc || '';
+            } catch (e) { /* 忽略 */ }
+
+            // 實時到站（由 server 代理 data.gov.hk，避免 CORS）
+            const d = await fetchJson(API_BASE + '/eta/' + encodeURIComponent(id), 3);
             const now = new Date();
             const byKey = new Map();
             for (const e of (d.data || [])) {

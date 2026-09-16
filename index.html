@@ -47,12 +47,12 @@
       <template x-if="status === 'loading'">
         <p class="flex items-center gap-2">
           <span class="inline-block w-4 h-4 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></span>
-          <span x-text="loadMsg"></span>
+          <span>正在連線本機 SQLite 服務…</span>
         </p>
       </template>
       <template x-if="status === 'ready'">
         <p>
-          ✅ 已載入 <b x-text="all.length"></b> 個九巴巴士站、<b x-text="routeCount"></b> 條路線方向資料 —
+          ✅ 服務就緒 — 資料已預處理於本機 SQLite：<b x-text="allCount"></b> 個站、<b x-text="routeCount"></b> 條路線方向。
           輸入站名即時搜尋（可輸入繁體 / 簡體 / 英文）。
         </p>
       </template>
@@ -69,8 +69,10 @@
       <div class="flex gap-2">
         <input id="q" type="text"
                x-model="q"
+               @input.debounce.250ms="doSearch()"
+               :disabled="status !== 'ready'"
                placeholder="例如：中環、Central、四美街、竹園…"
-               class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-400"
+               class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-slate-100"
         />
         <button @click="clearQuery()"
                 class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium text-sm">
@@ -78,7 +80,8 @@
         </button>
       </div>
       <p class="mt-2 text-xs text-slate-400">
-        顯示 <b><span x-text="results.length"></span></b> / <b><span x-text="all.length"></span></b> 個結果
+        <span x-show="searching">🔍 搜尋中…</span>
+        <span x-show="!searching && q.trim()">顯示 <b><span x-text="results.length"></span></b> 個結果</span>
       </p>
     </div>
 
@@ -89,7 +92,7 @@
       </div>
     </template>
 
-    <template x-if="status === 'ready' && q.trim() !== '' && results.length === 0">
+    <template x-if="status === 'ready' && q.trim() !== '' && !searching && results.length === 0">
       <div class="bg-white rounded-xl shadow p-8 text-center text-slate-500">
         <p class="text-3xl mb-2">🔍</p>
         <p>找不到符合「<b x-text="q"></b>」的巴士站，請試試其他關鍵字。</p>
@@ -111,7 +114,7 @@
           <p class="text-xs text-slate-400" x-text="'簡體：' + s.name_sc"></p>
           <div class="mt-2 flex items-center gap-2 text-xs font-mono">
             <span class="bg-slate-100 rounded px-2 py-1 text-slate-700">STOP ID: <b x-text="s.stop"></b></span>
-            <span class="text-slate-400" x-text="'(' + s.lat + ', ' + s.long + ')'"></span>
+            <span class="text-slate-400" x-text="'(' + s.lat + ', ' + s.lng + ')'"></span>
           </div>
 
           <!-- 途經路線 + 方向 -->
@@ -120,7 +123,7 @@
               🚏 途經路線（<span x-text="s.routes.length"></span> 條）
             </p>
             <div class="flex flex-wrap gap-1.5">
-              <template x-for="r in s.routes" :key="r.key">
+              <template x-for="r in s.routes" :key="r.route + '-' + r.bound">
                 <span :title="'往 ' + r.dest_tc + ' / ' + r.dest_en"
                       class="inline-flex items-center gap-1 rounded-md bg-blue-50 border border-blue-200 text-blue-800 px-2 py-0.5 text-xs">
                   <b class="font-bold" x-text="r.route"></b>
@@ -130,7 +133,7 @@
             </div>
           </div>
 
-          <a :href="'https://www.google.com/maps?q=' + s.lat + ',' + s.long"
+          <a :href="'https://www.google.com/maps?q=' + s.lat + ',' + s.lng"
              target="_blank" rel="noopener"
              class="mt-3 inline-block text-xs text-blue-600 underline">
             在地圖上查看 →
@@ -141,18 +144,18 @@
   </div>
 
   <script>
-    const API = 'https://data.etabus.gov.hk/v1/transport/kmb';
+    const API_BASE = '/api';   // 本機 SQLite server（node server.js）
 
-    async function fetchWithRetry(path, attempts = 3) {
+    async function fetchJson(url, attempts = 3) {
       let lastErr;
       for (let i = 0; i < attempts; i++) {
         try {
-          const res = await fetch(API + path, { headers: { 'Accept': 'application/json' } });
+          const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
           if (!res.ok) throw new Error('HTTP ' + res.status);
           return await res.json();
         } catch (e) {
           lastErr = e;
-          if (i < attempts - 1) await new Promise(r => setTimeout(r, 1500 * (i + 1)));
+          if (i < attempts - 1) await new Promise((r) => setTimeout(r, 1200 * (i + 1)));
         }
       }
       throw lastErr;
@@ -162,89 +165,60 @@
       return {
         status: 'idle',       // idle | loading | ready | error
         error: '',
-        loadMsg: '',
-        all: [],
-        routesByStop: new Map(),   // stopId -> Map(routeKey -> {key, route, bound, dest_tc, dest_en})
+        allCount: 0,
         routeCount: 0,
         q: '',
         copied: null,
-
-        get results() {
-          const kw = this.q.trim().toLowerCase();
-          if (!kw) return [];
-          return this.all.filter(s => {
-            return (s.name_tc && s.name_tc.toLowerCase().includes(kw))
-                || (s.name_sc && s.name_sc.toLowerCase().includes(kw))
-                || (s.name_en && s.name_en.toLowerCase().includes(kw));
-          }).slice(0, 100).map(s => this.decorate(s));
-        },
-
-        decorate(s) {
-          const rMap = this.routesByStop.get(s.stop);
-          let routes = [];
-          if (rMap) {
-            routes = Array.from(rMap.values())
-              .sort((a, b) => a.route.localeCompare(b.route, 'en', { numeric: true })
-                              || a.bound.localeCompare(b.bound));
-          }
-          return { ...s, routes };
-        },
+        searching: false,
+        results: [],
+        searchSeq: 0,         // 忽略過期的搜尋回應
 
         async init() {
           this.status = 'loading';
           try {
-            // 1) 站點
-            this.loadMsg = '正在下載九巴巴士站資料…';
-            const stopData = await fetchWithRetry('/stop');
-            this.all = (stopData.data || []).map(d => ({
-              stop: d.stop, name_tc: d.name_tc || '', name_sc: d.name_sc || '',
-              name_en: d.name_en || '', lat: d.lat || '', long: d.long || ''
-            }));
-
-            // 2) 路線（含「往」方向）
-            this.loadMsg = '正在下載路線／方向資料…';
-            const routeData = await fetchWithRetry('/route');
-            const routeMap = new Map();
-            for (const r of (routeData.data || [])) {
-              routeMap.set(r.route + '|' + r.bound + '|' + r.service_type, r);
-            }
-            this.routeCount = routeMap.size;
-
-            // 3) 站點 ↔ 路線對應（體積較大）
-            this.loadMsg = '正在下載站點與路線對應資料（體積較大，需稍候）…';
-            const rsData = await fetchWithRetry('/route-stop', 3);
-
-            // 建立 stopId -> 途經路線索引，按 route|bound 去重
-            //（同一路線及方向只顯示一次；不同 service_type 的特別/特快班次合併顯示，
-            //  但「出程 O / 回程 I」不同方向仍分開顯示）
-            const idx = new Map();
-            for (const x of (rsData.data || [])) {
-              const key = x.route + '|' + x.bound + '|' + x.service_type;
-              const destKey = x.route + '|' + x.bound;
-              let m = idx.get(x.stop);
-              if (!m) { m = new Map(); idx.set(x.stop, m); }
-              if (!m.has(destKey)) {
-                const rr = routeMap.get(key);
-                m.set(destKey, {
-                  key: destKey,
-                  route: x.route,
-                  bound: x.bound,
-                  dest_tc: (rr && rr.dest_tc) || '',
-                  dest_en: (rr && rr.dest_en) || '',
-                });
-              }
-            }
-            this.routesByStop = idx;
-
+            const s = await fetchJson(API_BASE + '/stats');
+            this.allCount = s.stops || 0;
+            this.routeCount = s.routes || 0;
             this.status = 'ready';
           } catch (e) {
-            this.error = '無法載入資料：' + e.message + '。請確認網絡連線後重新整理頁面重試。';
+            this.error = '無法連上本機 API：' + e.message +
+              '。請先執行 `npm run build-db`，再 `npm start`，然後以 http://localhost:8080 開啟本頁。';
             this.status = 'error';
+          }
+        },
+
+        async doSearch() {
+          const seq = ++this.searchSeq;
+          const kw = this.q.trim();
+          if (!kw) { this.results = []; this.searching = false; return; }
+          this.searching = true;
+          try {
+            const d = await fetchJson(API_BASE + '/search?q=' + encodeURIComponent(kw));
+            if (seq !== this.searchSeq) return;
+            const list = (d.data || []).slice(0, 40);
+            // 併行為每個站取得途經路線
+            const enriched = await Promise.all(list.map(async (s) => {
+              try {
+                const info = await fetchJson(API_BASE + '/stop/' + encodeURIComponent(s.stop), 2);
+                return Object.assign({}, s, { routes: (info && info.routes) || [] });
+              } catch (e) {
+                return Object.assign({}, s, { routes: [] });
+              }
+            }));
+            if (seq !== this.searchSeq) return;
+            this.results = enriched;
+          } catch (e) {
+            this.error = '搜尋失敗：' + e.message;
+          } finally {
+            if (seq === this.searchSeq) this.searching = false;
           }
         },
 
         clearQuery() {
           this.q = '';
+          this.results = [];
+          this.searching = false;
+          this.searchSeq++;
         },
 
         async copy(text) {
