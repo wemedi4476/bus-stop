@@ -6,7 +6,9 @@
   "type": "commonjs",
   "scripts": {
     "build-db": "node scripts/build-db.js",
-    "start": "node server.js"
+    "export-static": "node scripts/export-static.js",
+    "start": "node server.js",
+    "dev:pages": "wrangler pages dev public"
   },
   "dependencies": {}
 }

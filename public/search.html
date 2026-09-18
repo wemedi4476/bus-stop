@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>巴士站 STOP ID 查詢工具</title>
+
+  <!-- Tailwind CSS (CDN) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Alpine.js (CDN) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Phosphor Icons (CDN) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+
+  <style>
+    [x-cloak] { display: none !important; }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800" x-data="stopFinder()" x-cloak>
+  <div class="max-w-4xl mx-auto px-4 py-8">
+    <!-- 導航 -->
+    <nav class="mb-5 flex gap-3 text-sm font-medium">
+      <a href="index.html" class="rounded-lg px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5"><i class="ph ph-house"></i> 我的路線</a>
+      <span class="rounded-lg px-3 py-1.5 bg-blue-600 text-white inline-flex items-center gap-1.5"><i class="ph ph-magnifying-glass"></i> 巴士站查詢</span>
+      <a href="eta.html" class="rounded-lg px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5"><i class="ph ph-clock"></i> 實時到站</a>
+    </nav>
+
+    <!-- Header -->
+    <header class="mb-6">
+      <h1 class="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+        <i class="ph ph-bus text-blue-600"></i> 巴士站 STOP ID 查詢工具
+      </h1>
+      <p class="mt-1 text-sm text-slate-500">
+        支援九巴 (KMB) 巴士站，資料來源：
+        <a class="text-blue-600 underline"
+           href="https://data.gov.hk/"
+           target="_blank" rel="noopener">data.gov.hk</a>
+        <span class="mx-1">·</span>
+        以站名搜尋 STOP ID，並顯示所有途經路線及「往」的方向
+      </p>
+    </header>
+
+    <!-- Status bar -->
+    <div class="mb-4 rounded-lg border p-3 text-sm shadow-sm"
+         :class="{
+           'bg-amber-50 border-amber-200 text-amber-700': status === 'loading',
+           'bg-green-50 border-green-200 text-green-700': status === 'ready',
+           'bg-red-50 border-red-200 text-red-700': status === 'error'
+         }">
+      <template x-if="status === 'loading'">
+        <p class="flex items-center gap-2">
+          <span class="inline-block w-4 h-4 border-2 border-amber-600 border-t-transparent rounded-full animate-spin"></span>
+          <span>正在連線本機 SQLite 服務…</span>
+        </p>
+      </template>
+      <template x-if="status === 'ready'">
+        <p>
+          <i class="ph ph-check-circle"></i> 服務就緒 — 資料已預處理於本機 SQLite：<b x-text="allCount"></b> 個站、<b x-text="routeCount"></b> 條路線方向。
+          輸入站名即時搜尋（可輸入繁體 / 簡體 / 英文）。
+        </p>
+      </template>
+      <template x-if="status === 'error'">
+        <p class="inline-flex items-center gap-1"><i class="ph ph-warning"></i><span x-text="error"></span></p>
+      </template>
+    </div>
+
+    <!-- Search box -->
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+      <label for="q" class="block text-sm font-medium text-slate-600 mb-1">
+        搜尋巴士站名稱
+      </label>
+      <div class="flex gap-2">
+        <input id="q" type="text"
+               x-model="q"
+               @input.debounce.250ms="doSearch()"
+               :disabled="status !== 'ready'"
+               placeholder="例如：中環、Central、四美街、竹園…"
+               class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-blue-400 disabled:bg-slate-100"
+        />
+        <button @click="clearQuery()"
+                class="px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium text-sm">
+          清除
+        </button>
+      </div>
+      <p class="mt-2 text-xs text-slate-400">
+        <span x-show="searching" class="inline-flex items-center gap-1"><i class="ph ph-magnifying-glass"></i> 搜尋中…</span>
+        <span x-show="!searching && q.trim()">顯示 <b><span x-text="results.length"></span></b> 個結果</span>
+      </p>
+    </div>
+
+    <!-- 提示：已選路線會顯示在主頁「我的路線」 -->
+    <div class="mb-4 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+      <p class="flex items-center gap-1.5 flex-wrap">
+        <i class="ph ph-star-fill text-blue-600"></i>
+        已選取 <b><span x-text="selection.length"></span></b> 條路線 —
+        <template x-for="g in GROUPS" :key="g.id">
+          <span class="inline-flex items-center gap-1">
+            <i :class="g.icon" class="ph text-blue-600"></i><span x-text="g.label"></span>
+            <b x-text="selection.filter(it => it.group === g.id).length"></b>
+          </span>
+        </template>
+        。點選下方路線再選「上班／回家」即可收藏；
+        到 <a href="index.html" class="underline font-medium inline-flex items-center gap-1"><i class="ph ph-house"></i> 我的路線</a> 主頁查看各分類接下來 3 班的實時到站時間。
+      </p>
+    </div>
+
+    <!-- Results -->
+    <template x-if="status === 'ready' && q.trim() === ''">
+      <div class="bg-white rounded-xl shadow p-4 text-center text-sm text-slate-400">
+        ← 請輸入巴士站名稱開始搜尋
+      </div>
+    </template>
+
+    <template x-if="status === 'ready' && q.trim() !== '' && !searching && results.length === 0">
+      <div class="bg-white rounded-xl shadow p-8 text-center text-slate-500">
+        <p class="text-3xl mb-2 flex justify-center text-slate-400"><i class="ph ph-magnifying-glass"></i></p>
+        <p>找不到符合「<b x-text="q"></b>」的巴士站，請試試其他關鍵字。</p>
+      </div>
+    </template>
+
+    <div class="grid gap-3 md:grid-cols-2">
+      <template x-for="s in results" :key="s.stop">
+        <div class="bg-white rounded-xl shadow p-4 border-l-4 border-blue-500 hover:shadow-md transition">
+          <div class="flex items-start justify-between gap-2">
+            <h3 class="font-semibold text-slate-900 leading-snug" x-text="s.name_tc"></h3>
+            <button @click="copy(s.stop)"
+                    class="shrink-0 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs px-2 py-1 font-medium"
+                    title="複製 STOP ID"
+                    x-text="copied === s.stop ? '✓ 已複製' : '複製'">
+            </button>
+          </div>
+          <p class="text-sm text-slate-500" x-text="s.name_en"></p>
+          <p class="text-xs text-slate-400" x-text="'簡體：' + s.name_sc"></p>
+          <div class="mt-2 flex items-center gap-2 text-xs font-mono">
+            <span class="bg-slate-100 rounded px-2 py-1 text-slate-700">STOP ID: <b x-text="s.stop"></b></span>
+            <span class="text-slate-400" x-text="'(' + s.lat + ', ' + s.lng + ')'"></span>
+          </div>
+
+          <!-- 途經路線 + 方向 -->
+          <div class="mt-3 pt-3 border-t border-slate-100">
+            <p class="text-xs font-semibold text-slate-500 mb-2">
+              <i class="ph ph-bus"></i> 途經路線（<span x-text="s.routes.length"></span> 條）
+            </p>
+            <div class="flex flex-wrap gap-1.5">
+              <template x-for="r in s.routes" :key="r.route + '-' + r.bound">
+                <button type="button"
+                        :class="{
+                       'inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs cursor-pointer select-none transition': true,
+                       'bg-blue-50 border-blue-200 text-blue-800 hover:bg-blue-100': true
+                     }"
+                      :title="'點擊查看 ' + r.route + ' 完整路線（往 ' + r.dest_tc + '）'"
+                      @click="openRoute(r, s)">
+                  <i x-show="isSelected(s.stop, r.route, r.bound)"
+                     class="ph ph-star-fill -ml-0.5 mr-0.5 text-blue-600"></i>
+                  <b class="font-bold" x-text="r.route"></b>
+                  <span class="text-slate-600" x-text="'往 ' + r.dest_tc"></span>
+                </button>
+              </template>
+            </div>
+          </div>
+
+          <a :href="'https://www.google.com/maps?q=' + s.lat + ',' + s.lng"
+             target="_blank" rel="noopener"
+             class="mt-3 inline-block text-xs text-blue-600 underline">
+            在地圖上查看 →
+          </a>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- 路線完整站序 popup（點擊路線後彈出） -->
+  <div x-show="tip.show"
+       x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+       @click.self="hideRoute()"
+       @keydown.escape.window="hideRoute()">
+    <div class="flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-2xl bg-slate-900 text-slate-100 text-sm shadow-2xl border border-slate-700">
+      <div class="px-4 py-3 border-b border-slate-700 bg-slate-800 flex items-center justify-between gap-2 shrink-0">
+        <span class="font-semibold flex items-center gap-2">
+          <span class="inline-block rounded bg-blue-300 text-blue-900 px-2 py-0.5 font-bold text-xs inline-flex items-center gap-1"><i class="ph ph-bus"></i> <span x-text="tip.route"></span></span>
+          <span class="text-slate-300 text-sm" x-text="'往 ' + tip.dest_tc"></span>
+        </span>
+        <div class="flex items-center gap-1.5">
+          <!-- 群組選擇：未加入時點擊即加入；已加入時可切換群組 -->
+          <template x-for="g in GROUPS" :key="g.id">
+            <button @click="setGroup(g.id)"
+                    :class="groupOf(tip.stop, tip.route, tip.bound) === g.id
+                              ? 'bg-blue-600 text-white ring-2 ring-blue-300'
+                              : 'bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-600'"
+                    class="shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium transition inline-flex items-center gap-1">
+              <i :class="g.icon" class="ph"></i>
+              <span x-text="g.label"></span>
+            </button>
+          </template>
+          <!-- 已加入時顯示「移除」 -->
+          <button x-show="isSelected(tip.stop, tip.route, tip.bound)"
+                  @click="setGroup(null)"
+                  class="shrink-0 rounded-lg bg-amber-400 text-amber-900 hover:bg-amber-300 px-2 py-1 text-xs font-medium inline-flex items-center gap-1">
+            <i class="ph ph-x text-sm"></i> 移除
+          </button>
+          <button @click="hideRoute()" class="shrink-0 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 px-2 py-1 text-xs inline-flex items-center gap-1"><i class="ph ph-x text-sm"></i> 關閉</button>
+        </div>
+      </div>
+      <div class="px-4 py-2 border-b border-slate-700 text-xs text-slate-400 shrink-0" x-show="tip.loading">
+        ⏳ 載入完整路線…
+      </div>
+      <div class="px-4 py-2 border-b border-slate-700 text-xs text-red-300 shrink-0" x-show="tip.error && !tip.loading" x-text="tip.error"></div>
+      <div x-show="!tip.loading && !tip.error" class="overflow-y-auto px-4 py-3">
+        <template x-if="!tip.variants || tip.variants.length === 0">
+          <p class="text-slate-400">（無途經站資料）</p>
+        </template>
+        <template x-for="(v, vi) in tip.variants" :key="'v' + (v.service_type || '') + vi">
+          <div>
+            <p class="text-xs text-amber-300 font-semibold mb-1"
+               x-show="tip.variants.length > 1"
+               x-text="'服務類型 ' + v.service_type + '（' + v.stops.length + ' 個站）'"></p>
+            <ol class="list-none space-y-1.5">
+              <template x-for="(p, pi) in v.stops" :key="'s' + (v.service_type || '') + pi">
+                <li class="flex gap-2">
+                  <span class="shrink-0 w-6 text-right text-slate-500 tabular-nums" x-text="p.seq"></span>
+                  <span class="text-slate-100" x-text="p.name_tc"></span>
+                </li>
+              </template>
+            </ol>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';   // 本機 SQLite server（node server.js）
+
+    async function fetchJson(url, attempts = 3) {
+      let lastErr;
+      for (let i = 0; i < attempts; i++) {
+        try {
+          const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return await res.json();
+        } catch (e) {
+          lastErr = e;
+          if (i < attempts - 1) await new Promise((r) => setTimeout(r, 1200 * (i + 1)));
+        }
+      }
+      throw lastErr;
+    }
+
+    function stopFinder() {
+      return {
+        status: 'idle',       // idle | loading | ready | error
+        error: '',
+        allCount: 0,
+        routeCount: 0,
+        q: '',
+        copied: null,
+        searching: false,
+        results: [],
+        searchSeq: 0,         // 忽略過期的搜尋回應
+        // 路線 popup 狀態
+        tip: { show: false, key: '', route: '', bound: '', dest_tc: '', stop: '', stopName: '', loading: false, error: '', variants: [] },
+        // 我的路線（選擇的路線 + 實時到站）—— 以 localStorage 持久化，重新整理後保留
+        SEL_STORAGE_KEY: 'bustop.myRoutes.v1',
+        selection: [],         // { key, stop, stopName, route, bound, dest_tc, group, etas:[], loading, error }
+        selRefreshing: false,  // 全部刷新中
+        // 分類群組
+        GROUPS: [
+          { id: 'work', label: '上班', icon: 'ph-briefcase' },
+          { id: 'home', label: '回家', icon: 'ph-house' }
+        ],
+        tipCache: {},         // key(route+bound) -> data，避免重複向 server 抓取
+        allStops: [],          // 載入的靜態車站（已正規化為前端用形狀）
+        routesFull: null,      // 靜態 route|bound → 站序（延遲載入）
+
+        async init() {
+          this.status = 'loading';
+          try {
+            // Option C：直接用靜態 JSON（Cloudflare Pages 提供，無需本機 DB API）
+            const stopsArr = await (await fetch('data/stops.json', { headers: { 'Accept': 'application/json' } })).json();
+            this.allStops = stopsArr.map(x => ({
+              stop: x.s, name_tc: x.tc, name_sc: x.sc, name_en: x.en, lat: x.lat, lng: x.lng,
+              routes: (x.routes || []).map(q => ({ route: q.r, bound: q.b, dest_tc: q.d, dest_en: q.de }))
+            }));
+            const uniq = new Set();
+            for (const st of this.allStops) for (const rt of st.routes) uniq.add(rt.route);
+            this.allCount = this.allStops.length;
+            this.routeCount = uniq.size;
+            this.status = 'ready';
+          } catch (e) {
+            this.error = '無法載入靜態資料（data/stops.json）：' + e.message;
+            this.status = 'error';
+          }
+          // 還原已選路線，讓路線 chip 顯示「★ 已加入」狀態（實時到站在主頁顯示）
+          this.restoreSelection();
+        },
+
+        async doSearch() {
+          const seq = ++this.searchSeq;
+          const kw = this.q.trim().toLowerCase();
+          if (!kw) { this.results = []; this.searching = false; return; }
+          this.searching = true;
+          try {
+            const list = this.allStops.filter(s =>
+              (s.name_tc && s.name_tc.toLowerCase().includes(kw)) ||
+              (s.name_sc && s.name_sc.toLowerCase().includes(kw)) ||
+              (s.name_en && s.name_en.toLowerCase().includes(kw))
+            ).slice(0, 40);
+            if (seq !== this.searchSeq) return;
+            this.results = list;
+          } catch (e) {
+            this.error = '搜尋失敗：' + e.message;
+          } finally {
+            if (seq === this.searchSeq) this.searching = false;
+          }
+        },
+
+        clearQuery() {
+          this.q = '';
+          this.results = [];
+          this.searching = false;
+          this.searchSeq++;
+        },
+
+        async copy(text) {
+          try {
+            await navigator.clipboard.writeText(text);
+            this.copied = text;
+            setTimeout(() => { if (this.copied === text) this.copied = null; }, 1500);
+          } catch (e) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+            this.copied = text;
+            setTimeout(() => { if (this.copied === text) this.copied = null; }, 1500);
+          }
+        },
+
+        async openRoute(r, stopCtx) {
+          const key = r.route + '-' + r.bound;
+          this.tip.show = true;
+          this.tip.key = key;
+          this.tip.route = r.route;
+          this.tip.bound = r.bound;
+          this.tip.dest_tc = r.dest_tc;
+          this.tip.stop = (stopCtx && stopCtx.stop) || '';
+          this.tip.stopName = (stopCtx && stopCtx.name_tc) || '';
+          this.tip.loading = true;
+          this.tip.error = '';
+          this.tip.variants = [];
+          // 已快取則直接顯示
+          if (this.tipCache[key]) {
+            this.tip.variants = this.tipCache[key];
+            this.tip.loading = false;
+            return;
+          }
+          try {
+            // 延遲載入靜態站序（首次開啟任何 popup 時抓一次並快取）
+            if (!this.routesFull) {
+              this.routesFull = await (await fetch('data/routes_full.json', { headers: { 'Accept': 'application/json' } })).json();
+            }
+            const key2 = r.route + '|' + r.bound;
+            const variants = (this.routesFull[key2] || []).map(v => ({
+              service_type: v.st,
+              stops: v.stops.map(p => ({ seq: p.q, name_tc: p.tc }))
+            }));
+            this.tipCache[key] = variants;
+            // 若彈窗已被關閉，就不更新畫面
+            if (this.tip.key !== key) return;
+            this.tip.variants = variants;
+          } catch (e) {
+            if (this.tip.key !== key) return;
+            this.tip.error = '無法載入路線：' + e.message;
+          } finally {
+            if (this.tip.key === key) this.tip.loading = false;
+          }
+        },
+
+        hideRoute() {
+          this.tip.show = false;
+          this.tip.key = '';
+          this.tip.variants = [];
+          this.tip.error = '';
+        },
+
+        // ---- 我的路線（選取 + 實時到站） ----
+
+        saveSelection() {
+          try {
+            // 只存靜態欄位，不存每次刷新後的 etas/loading/error
+            const slim = this.selection.map(it => ({
+              key: it.key, stop: it.stop, stopName: it.stopName,
+              route: it.route, bound: it.bound, dest_tc: it.dest_tc, group: it.group
+            }));
+            localStorage.setItem(this.SEL_STORAGE_KEY, JSON.stringify(slim));
+          } catch (e) { /* 忽略：儲存失敗不阻斷 */ }
+        },
+
+        restoreSelection() {
+          try {
+            const raw = localStorage.getItem(this.SEL_STORAGE_KEY);
+            if (!raw) return;
+            const arr = JSON.parse(raw);
+            if (!Array.isArray(arr)) return;
+            // 舊資料無 group 欄位，預設歸入「上班」
+            this.selection = arr.map(s => Object.assign({}, s, {
+              group: (s.group === 'work' || s.group === 'home') ? s.group : 'work',
+              etas: [], loading: false, error: ''
+            }));
+          } catch (e) { /* 忽略 */ }
+        },
+
+        selKey(stop, route, bound) { return stop + '|' + route + '|' + bound; },
+
+        // 該路線目前所在的群組 id；未加入則回傳 null
+        groupOf(stop, route, bound) {
+          const it = this.selection.find(x => x.key === this.selKey(stop, route, bound));
+          return it ? it.group : null;
+        },
+
+        isSelected(stop, route, bound) {
+          return this.selection.some(it => it.key === this.selKey(stop, route, bound));
+        },
+
+        // popup 內的「加入 / 切換群組 / 移除 我的路線」
+        // gid: 'work' | 'home' | null（null = 移除）
+        setGroup(gid) {
+          const t = this.tip;
+          if (!t.stop) return;   // 需要知道是哪一站
+          const key = this.selKey(t.stop, t.route, t.bound);
+          const existing = this.selection.find(it => it.key === key);
+          if (gid === null) {
+            this.selection = this.selection.filter(it => it.key !== key);
+          } else if (existing) {
+            existing.group = gid;                 // 已在收藏中 → 切換群組
+          } else {
+            this.selection.push({                 // 尚未收藏 → 以指定群組加入
+              key,
+              stop: t.stop,
+              stopName: t.stopName,
+              route: t.route,
+              bound: t.bound,
+              dest_tc: t.dest_tc,
+              group: gid,
+              etas: [],
+              loading: false,
+              error: ''
+            });
+          }
+          this.saveSelection();
+        },
+
+        removeSel(key) {
+          this.selection = this.selection.filter(it => it.key !== key);
+          this.saveSelection();
+        },
+
+        // 查詢某一條已選路線的實時到站：取接下來 3 班
+        async refreshOne(item) {
+          item.loading = true;
+          item.error = '';
+          try {
+            const d = await fetchJson(API_BASE + '/eta/' + encodeURIComponent(item.stop), 3);
+            const now = new Date();
+            const list = (d.data || [])
+              .filter(e => e.route === item.route && e.dir === item.bound && (!e.co || e.co === 'KMB'))
+              .map(e => new Date(e.eta))
+              .filter(dt => !isNaN(dt))         // 剔除無效或未定的班次
+              .sort((a, b) => a - b);
+            item.etas = list.slice(0, 3).map(dt => ({
+              mins: Math.floor((dt - now) / 60000),
+              time: this.formatTime(dt),
+              rmk: ''
+            }));
+            if (!item.etas.length) {
+              item.error = '目前沒有該路線的實時到站資料';
+            }
+          } catch (e) {
+            item.error = '查詢失敗：' + e.message;
+          } finally {
+            item.loading = false;
+          }
+        },
+
+        // 重新查詢所有已選路線
+        async refreshSel() {
+          this.selRefreshing = true;
+          await Promise.all(this.selection.map(it => this.refreshOne(it)));
+          this.selRefreshing = false;
+        },
+
+        formatTime(dt) {
+          if (!(dt instanceof Date) || isNaN(dt)) return '';
+          const p = n => String(n).padStart(2, '0');
+          return p(dt.getHours()) + ':' + p(dt.getMinutes());
+        }
+      };
+    }
+  </script>
+</body>
+</html>

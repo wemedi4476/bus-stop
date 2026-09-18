@@ -1,0 +1,13 @@
+{
+  "routes": [
+    {
+      "routePath": "/api/eta/:id",
+      "mountPath": "/api/eta",
+      "method": "GET",
+      "module": [
+        "api/eta/[id].js:onRequestGet"
+      ]
+    }
+  ],
+  "baseURL": "/"
+}

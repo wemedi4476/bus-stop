@@ -1,0 +1,15 @@
+# wrangler.toml — Cloudflare Pages 專案（Option C：靜態資料無資料庫）
+name = "bustop"
+compatibility_date = "2024-11-01"
+
+# Pages 建置輸出目錄（靜態資產：HTML + data/*.json）
+pages_build_output_dir = "public"
+
+# 使用方式：
+#   1) 產生靜態資料   : npm run build-db && npm run export-static
+#   2) 本機測試        : npx wrangler pages dev public
+#                        （或本機 node server.js 跑 localhost:8080）
+#   3) 部署到 Pages    : npx wrangler pages deploy public --project-name=bustop
+#
+# Pages Functions（functions/api/**）會自動部署，無需額外設定。
+# ETA 代理：functions/api/eta/[id].js（代理 data.gov.hk，無 D1/DB）。

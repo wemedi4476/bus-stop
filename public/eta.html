@@ -9,6 +9,10 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Alpine.js (CDN) -->
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <!-- Phosphor Icons (CDN) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.1/src/regular/style.css" />
+  <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
 
   <style>
     [x-cloak] { display: none !important; }
@@ -18,14 +22,15 @@
   <div class="max-w-3xl mx-auto px-4 py-8">
     <!-- 導航 -->
     <nav class="mb-5 flex gap-3 text-sm font-medium">
-      <a href="index.html" class="rounded-lg px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50">🚏 巴士站查詢</a>
-      <span class="rounded-lg px-3 py-1.5 bg-blue-600 text-white">🕒 實時到站</span>
+      <a href="index.html" class="rounded-lg px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5"><i class="ph ph-house"></i> 我的路線</a>
+      <a href="search.html" class="rounded-lg px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5"><i class="ph ph-magnifying-glass"></i> 巴士站查詢</a>
+      <span class="rounded-lg px-3 py-1.5 bg-blue-600 text-white inline-flex items-center gap-1.5"><i class="ph ph-clock"></i> 實時到站</span>
     </nav>
 
     <!-- Header -->
     <header class="mb-6">
       <h1 class="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
-        🕒 巴士站實時到站查詢
+        <i class="ph ph-clock text-blue-600"></i> 巴士站實時到站查詢
       </h1>
       <p class="mt-1 text-sm text-slate-500">
         輸入 STOP ID，從
@@ -56,7 +61,7 @@
         </button>
       </div>
       <p x-show="stopName" class="mt-2 text-sm font-semibold text-slate-800">
-        📍 <span x-text="stopName"></span>
+        <i class="ph ph-map-pin text-blue-600"></i> <span x-text="stopName"></span>
         <span class="text-xs font-normal text-slate-400" x-text="'STOP ID: ' + stopId.toUpperCase()"></span>
       </p>
     </div>
@@ -64,12 +69,12 @@
     <!-- 提示 / 錯誤 -->
     <template x-if="error">
       <div class="mb-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm p-3">
-        ⚠️ <span x-text="error"></span>
+        <i class="ph ph-warning"></i> <span x-text="error"></span>
       </div>
     </template>
     <template x-if="empty">
       <div class="mb-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-sm p-3">
-        ℹ️ 該 STOP ID 目前沒有實時到站資料（可能無服務或查詢方式有誤）。
+        <i class="ph ph-info"></i> 該 STOP ID 目前沒有實時到站資料（可能無服務或查詢方式有誤）。
       </div>
     </template>
 
@@ -145,13 +150,15 @@
         empty: false,
         queriedAt: '',
         groups: [],
+        stopsMap: {},   // 靜態站 id → {tc,en}（載入 stops.json 建立）
 
         async init() {
-          // 透過本機 SQLite server；資料在 server 端已預處理
+          // Option C：載入靜態車站資料以查站名；實時 ETA 走 /api/eta 代理
           this.status = 'ready';
           try {
-            const s = await fetchJson(API_BASE + '/stats');
-            this.stopNameCount = s.stops || 0;
+            const stopsArr = await (await fetch('data/stops.json', { headers: { 'Accept': 'application/json' } })).json();
+            for (const s of stopsArr) this.stopsMap[s.s] = { tc: s.tc, en: s.en };
+            this.stopNameCount = stopsArr.length;
           } catch (e) { /* 忽略，不阻斷 */ }
         },
 
@@ -166,10 +173,8 @@
           this.stopName = '';
           try {
             // 站名（best-effort，失敗不阻斷實時查詢）
-            try {
-              const info = await fetchJson(API_BASE + '/stop/' + encodeURIComponent(id), 2);
-              this.stopName = info.name_tc || '';
-            } catch (e) { /* 忽略 */ }
+            const hit = this.stopsMap[id.toUpperCase()] || this.stopsMap[id];
+            this.stopName = (hit && hit.tc) || '';
 
             // 實時到站（由 server 代理 data.gov.hk，避免 CORS）
             const d = await fetchJson(API_BASE + '/eta/' + encodeURIComponent(id), 3);

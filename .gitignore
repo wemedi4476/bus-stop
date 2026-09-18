@@ -7,6 +7,9 @@ bustop.db-shm
 # Raw downloads (intermediate, generated)
 data/
 
+# Generated static JSON artifacts (produced by npm run export-static)
+public/data/
+
 # Node
 node_modules/
 
