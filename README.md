@@ -1,15 +1,15 @@
 # 巴士站 STOP ID 查詢工具 + 實時到站（我的路線）
 
-多頁靜態前端（Tailwind CSS + Alpine.js）。可跑在本機 Node 或以 **Cloudflare Pages** 托管（**Option C：靜態資料、無資料庫**）。
+多頁靜態前端（Tailwind CSS + Alpine.js）。可跑在本機 Node 或以 **Cloudflare Pages** 托管
 
 - 資料來源：[data.gov.hk](https://data.gov.hk/) 的 eTA 開放資料（九巴 KMB）
-- 資料以**唯讀靜態 JSON** 預先算好，放到 Pages/R2 由 CDN 提供，**不需要資料庫**（無 D1、無需雲端 DB）。
+- 資料以**唯讀靜態 JSON** 預先算好，放到 Pages/R2 由 CDN 提供
 - 實時 ETA 由一個 Pages Function 代理 data.gov.hk（瀏覽器有 CORS 限制）。
 - 技術：Node 22（內置 `node:sqlite`，**零 npm 依賴**）+ Tailwind + Alpine.js（CDN），部署用 `wrangler`（Cloudflare）。
 
 ## 特色
 - **🏠 主頁「我的路線」**：收藏的巴士路線 + 每條**接下來 3 班**實時到站（幾分鐘後到站）。
-- **🚏 巴士站查詢**：站名搜尋（繁/簡/英）→ 點路線看**完整站序 popup** →「＋ 加入我的路線」。
+- **🚏 巴士站查詢**：站名搜尋（繁/簡/英）→ 點路線看**完整站序 popup** → 選「上班／回家」即加入並返回搜尋結果。
 - **🕒 實時到站**：輸入 STOP ID 查詢該站所有途經路線的實時到站。
 - 收藏存於瀏覽器 `localStorage`（`bustop.myRoutes.v1`），跨頁面共享、重新整理不消失。
 
@@ -61,6 +61,7 @@ public/                 # Pages 靜態資產（亦為本機 server 的 static ro
   index.html            # 主頁「我的路線」
   search.html           # 巴士站查詢
   eta.html              # 實時到站
+  app.js                # 三頁共用前端工具（fetch 重試／時間格式／收藏存取）
   data/stops.json       # 匯出：全部車站 + 每站途經路線
   data/routes_full.json # 匯出：每路線完整站序
 functions/api/eta/[id].js  # Pages Function：代理 data.gov.hk 實時 ETA

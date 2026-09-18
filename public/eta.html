@@ -19,20 +19,20 @@
   </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800" x-data="etaFinder()" x-cloak>
-  <div class="max-w-3xl mx-auto px-4 py-8">
+  <div class="max-w-3xl mx-auto px-3 py-3">
     <!-- 導航 -->
-    <nav class="mb-5 flex gap-3 text-sm font-medium">
-      <a href="index.html" class="rounded-lg px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5"><i class="ph ph-house"></i> 我的路線</a>
-      <a href="search.html" class="rounded-lg px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5"><i class="ph ph-magnifying-glass"></i> 巴士站查詢</a>
-      <span class="rounded-lg px-3 py-1.5 bg-blue-600 text-white inline-flex items-center gap-1.5"><i class="ph ph-clock"></i> 實時到站</span>
+    <nav class="mb-2 flex flex-wrap gap-2 text-xs font-medium">
+      <a href="index.html" class="rounded-lg px-2.5 py-1 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1"><i class="ph ph-house"></i> 我的路線</a>
+      <a href="search.html" class="rounded-lg px-2.5 py-1 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1"><i class="ph ph-magnifying-glass"></i> 巴士站查詢</a>
+      <span class="rounded-lg px-2.5 py-1 bg-blue-600 text-white inline-flex items-center gap-1"><i class="ph ph-clock"></i> 實時到站</span>
     </nav>
 
     <!-- Header -->
-    <header class="mb-6">
-      <h1 class="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
+    <header class="mb-3">
+      <h1 class="text-lg font-bold text-slate-900 flex items-center gap-1.5">
         <i class="ph ph-clock text-blue-600"></i> 巴士站實時到站查詢
       </h1>
-      <p class="mt-1 text-sm text-slate-500">
+      <p class="mt-1 text-xs text-slate-500 leading-relaxed">
         輸入 STOP ID，從
         <a class="text-blue-600 underline" href="https://data.gov.hk/" target="_blank" rel="noopener">data.gov.hk</a>
         API 取得該站所有途經路線的實時到站時間（九巴 KMB）。
@@ -43,8 +43,8 @@
     </header>
 
     <!-- 輸入區 -->
-    <div class="bg-white rounded-xl shadow p-4 mb-3">
-      <label for="sid" class="block text-sm font-medium text-slate-600 mb-1">
+    <div class="bg-white rounded-xl shadow p-2.5 mb-2">
+      <label for="sid" class="block text-xs font-medium text-slate-600 mb-1">
         巴士站 STOP ID
       </label>
       <div class="flex gap-2">
@@ -52,15 +52,15 @@
                x-model="stopId"
                @keydown.enter="query()"
                placeholder="例如：99EF4CA10B3E1F17（豐力樓）"
-               class="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-400"
+               class="flex-1 rounded-lg border border-slate-300 px-2.5 py-1.5 text-base font-mono focus:outline-none focus:ring-2 focus:ring-blue-400"
         />
         <button @click="query()"
                 :disabled="querying"
-                class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium text-sm">
+                class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium text-sm">
           <span x-text="querying ? '查詢中…' : '查詢'"></span>
         </button>
       </div>
-      <p x-show="stopName" class="mt-2 text-sm font-semibold text-slate-800">
+      <p x-show="stopName" class="mt-1.5 text-sm font-semibold text-slate-800">
         <i class="ph ph-map-pin text-blue-600"></i> <span x-text="stopName"></span>
         <span class="text-xs font-normal text-slate-400" x-text="'STOP ID: ' + stopId.toUpperCase()"></span>
       </p>
@@ -68,44 +68,44 @@
 
     <!-- 提示 / 錯誤 -->
     <template x-if="error">
-      <div class="mb-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm p-3">
+      <div class="mb-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs px-2.5 py-1.5">
         <i class="ph ph-warning"></i> <span x-text="error"></span>
       </div>
     </template>
     <template x-if="empty">
-      <div class="mb-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-sm p-3">
+      <div class="mb-2 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 text-xs px-2.5 py-1.5">
         <i class="ph ph-info"></i> 該 STOP ID 目前沒有實時到站資料（可能無服務或查詢方式有誤）。
       </div>
     </template>
 
     <!-- 結果標題 -->
     <template x-if="queriedAt && groups.length">
-      <p class="text-xs text-slate-400 mb-2">
+      <p class="text-[11px] text-slate-400 mb-1">
         資料時間：<span x-text="queriedAt"></span>
         <span class="ml-2">共 <b x-text="groups.length"></b> 條途經路線</span>
       </p>
     </template>
 
     <!-- 路線卡片 -->
-    <div class="grid gap-3">
+    <div class="grid gap-2">
       <template x-for="g in groups" :key="g.key">
-        <div class="bg-white rounded-xl shadow p-4 border-l-4"
+        <div class="bg-white rounded-lg shadow p-3 border-l-4"
              :class="g.dir === 'O' ? 'border-blue-500' : 'border-emerald-500'">
           <div class="flex items-center justify-between gap-2">
-            <div class="flex items-center gap-2">
-              <span class="text-xl font-bold text-slate-900" x-text="g.route"></span>
+            <div class="flex items-center gap-1.5 min-w-0">
+              <span class="text-lg font-bold text-slate-900" x-text="g.route"></span>
               <span class="text-xs rounded px-1.5 py-0.5 font-medium"
                     :class="g.dir === 'O' ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700'"
                     x-text="g.dir === 'O' ? '出程' : '回程'"></span>
-              <span class="text-sm text-slate-600" x-text="'往 ' + g.dest_tc"></span>
+              <span class="text-xs text-slate-600 truncate" x-text="'往 ' + g.dest_tc"></span>
             </div>
-            <span class="text-xs text-slate-400" x-text="g.etas.length > 1 ? '接下來 ' + g.etas.length + ' 班' : ''"></span>
+            <span class="text-[11px] text-slate-400 shrink-0" x-text="g.etas.length > 1 ? '接下來 ' + g.etas.length + ' 班' : ''"></span>
           </div>
-          <p class="text-xs text-slate-400" x-text="g.dest_en"></p>
+          <p class="text-[11px] text-slate-400" x-text="g.dest_en"></p>
 
-          <div class="mt-3 flex flex-col gap-2">
+          <div class="mt-2 flex flex-col gap-1">
             <template x-for="(e, i) in g.etas" :key="g.key + '-' + i">
-              <div class="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2">
+              <div class="flex items-center justify-between rounded-lg bg-slate-50 px-2.5 py-1.5">
                 <span class="text-sm font-medium"
                       :class="e.mins < 0 ? 'text-slate-400' : 'text-slate-800'"
                       x-text="e.mins < 0 ? '已開出' : (e.mins === 0 ? '即將到站' : e.mins + ' 分鐘')"></span>
@@ -121,26 +121,10 @@
     </div>
   </div>
 
+  <script src="app.js"></script>
   <script>
-    const API_BASE = '/api';   // 本機 SQLite server（node server.js）
-
-    async function fetchJson(url, attempts = 3) {
-      let lastErr;
-      for (let i = 0; i < attempts; i++) {
-        try {
-          const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return await res.json();
-        } catch (e) {
-          lastErr = e;
-          if (i < attempts - 1) await new Promise(r => setTimeout(r, 1500 * (i + 1)));
-        }
-      }
-      throw lastErr;
-    }
-
     function etaFinder() {
-      return {
+      return Object.assign({
         status: 'idle',
         stopId: '',
         stopName: '',
@@ -213,14 +197,8 @@
           } finally {
             this.querying = false;
           }
-        },
-
-        formatTime(dt) {
-          if (!(dt instanceof Date) || isNaN(dt)) return '';
-          const p = n => String(n).padStart(2, '0');
-          return p(dt.getHours()) + ':' + p(dt.getMinutes());
         }
-      };
+      }, bustop);
     }
   </script>
 </body>

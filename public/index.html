@@ -19,28 +19,18 @@
   </style>
 </head>
 <body class="min-h-screen bg-slate-100 text-slate-800" x-data="myRoutes()" x-cloak>
-  <div class="max-w-4xl mx-auto px-4 py-8">
+  <div class="max-w-4xl mx-auto px-3 py-3">
     <!-- 導航 -->
-    <nav class="mb-5 flex gap-3 text-sm font-medium">
-      <span class="rounded-lg px-3 py-1.5 bg-blue-600 text-white inline-flex items-center gap-1.5"><i class="ph ph-house"></i> 我的路線</span>
-      <a href="search.html" class="rounded-lg px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5"><i class="ph ph-magnifying-glass"></i> 巴士站查詢</a>
-      <a href="eta.html" class="rounded-lg px-3 py-1.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1.5"><i class="ph ph-clock"></i> 實時到站</a>
+    <nav class="mb-2 flex flex-wrap gap-2 text-xs font-medium">
+      <span class="rounded-lg px-2.5 py-1 bg-blue-600 text-white inline-flex items-center gap-1"><i class="ph ph-house"></i> 我的路線</span>
+      <a href="search.html" class="rounded-lg px-2.5 py-1 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1"><i class="ph ph-magnifying-glass"></i> 巴士站查詢</a>
+      <a href="eta.html" class="rounded-lg px-2.5 py-1 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 inline-flex items-center gap-1"><i class="ph ph-clock"></i> 實時到站</a>
     </nav>
 
-    <!-- Header -->
-    <header class="mb-6">
-      <h1 class="text-2xl md:text-3xl font-bold text-slate-900 flex items-center gap-2">
-        <i class="ph ph-star-fill text-blue-600"></i> 我的路線
-      </h1>
-      <p class="mt-1 text-sm text-slate-500">
-        你收藏的巴士路線，分成 <b class="text-slate-700">上班</b> 與 <b class="text-slate-700">回家</b> 兩個分類，每條顯示接下來 <b class="text-slate-700">3 班</b> 的實時到站時間（九巴 KMB）。
-        <span class="mx-1">·</span>
-        到 <a href="search.html" class="text-blue-600 underline inline-flex items-center gap-1"><i class="ph ph-bus"></i> 巴士站查詢</a> 搜尋車站並在路線 popup 中選「上班／回家」加入；已加路線可直接在主頁切換分類。
-      </p>
-    </header>
+
 
     <!-- Status bar -->
-    <div class="mb-4 rounded-lg border p-3 text-sm shadow-sm"
+    <div class="mb-2 rounded-lg border px-2.5 py-1 text-xs shadow-sm"
          :class="{
            'bg-amber-50 border-amber-200 text-amber-700': status === 'loading',
            'bg-green-50 border-green-200 text-green-700': status === 'ready',
@@ -70,10 +60,10 @@
 
     <!-- 沒有路線時的空狀態 -->
     <template x-if="status === 'ready' && selection.length === 0">
-      <div class="bg-white rounded-xl shadow p-10 text-center">
-        <p class="text-5xl mb-3 flex justify-center text-blue-600"><i class="ph ph-bus"></i></p>
-        <h2 class="text-lg font-semibold text-slate-700 mb-1">你還沒有收藏任何路線</h2>
-        <p class="text-sm text-slate-500 mb-5">到巴士站查詢搜尋車站，點擊路線並按「＋ 加入我的路線」即可在此追蹤它的實時到站。</p>
+      <div class="bg-white rounded-xl shadow p-6 text-center">
+        <p class="text-4xl mb-2 flex justify-center text-blue-600"><i class="ph ph-bus"></i></p>
+        <h2 class="text-base font-semibold text-slate-700 mb-1">你還沒有收藏任何路線</h2>
+        <p class="text-xs text-slate-500 mb-4">到巴士站查詢搜尋車站，點擊路線並選「上班／回家」即可在此追蹤它的實時到站。</p>
         <a href="search.html"
            class="inline-block rounded-lg bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 font-medium text-sm">
           <i class="ph ph-bus"></i> 前往巴士站查詢
@@ -84,16 +74,16 @@
     <!-- 我的路線列表：同一車站合併成一張卡片，站內列出該站所有已選路線 -->
     <template x-if="status === 'ready' && selection.length">
       <!-- 內容容器（單一根，供 x-if 呈現） -->
-      <div class="flex flex-col gap-3">
+      <div class="flex flex-col gap-2">
         <!-- tabs：一次只顯示一個分類（上班／回家），減少捲動 -->
         <div class="grid grid-cols-2 gap-2">
         <template x-for="g in GROUPS" :key="g.id">
           <button type="button"
-                  @click="switchGroup(g.id)"
+                  @click="activeGroup = g.id"
                   :class="activeGroup === g.id
                         ? (g.color === 'emerald' ? 'bg-emerald-600 border-emerald-600 text-white' : 'bg-blue-600 border-blue-600 text-white')
                         : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'"
-                  class="flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-bold">
+                  class="flex items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 text-sm font-bold">
             <i :class="g.icon" class="ph"></i>
             <span x-text="g.label"></span>
             <span class="text-xs font-medium opacity-80" x-text="'(' + groupCount(g.id) + ')'"></span>
@@ -106,75 +96,60 @@
         <section>
 
             <template x-if="activeSection.groups.length === 0">
-              <div class="bg-white rounded-xl shadow p-4 text-center text-sm text-slate-400">
+              <div class="bg-white rounded-xl shadow p-3 text-center text-xs text-slate-400">
                 尚無 <b x-text="activeSection.label"></b> 路線。到<a href="search.html" class="text-blue-600 underline mx-1">巴士站查詢</a>搜尋車站後選「<span x-text="activeSection.label"></span>」加入。
               </div>
             </template>
 
             <template x-if="activeSection.groups.length">
-              <div class="grid gap-3 md:grid-cols-2">
+              <div class="grid gap-2 md:grid-cols-2">
                 <template x-for="grp in activeSection.groups" :key="activeSection.gid + '-g' + grp.stop">
-                  <div class="bg-white rounded-xl shadow-sm p-3 border-l-4"
+                  <div class="bg-white rounded-lg shadow-sm p-2 border-l-4"
                        :class="activeSection.color === 'emerald' ? 'border-emerald-500' : 'border-blue-500'">
-                    <div class="flex items-center justify-between gap-2">
-                      <div class="min-w-0">
-                        <p class="text-sm font-semibold text-slate-900 inline-flex items-center gap-1">
-                          <i class="ph ph-map-pin text-blue-600 shrink-0"></i><span class="truncate" x-text="grp.stopName"></span>
-                        </p>
-                        <p class="text-[11px] text-slate-400 font-mono" x-text="grp.stop"></p>
-                      </div>
-                      <button @click="removeStop(grp.stop)" :disabled="selRefreshing"
-                              class="shrink-0 rounded bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 text-[11px] px-1.5 py-0.5"
-                              title="移除此站全部路線">
-                        <i class="ph ph-x text-sm"></i>
-                      </button>
+                    <div class="flex items-baseline gap-1.5 min-w-0">
+                      <p class="text-sm font-semibold text-slate-900 inline-flex items-center gap-1 min-w-0">
+                        <i class="ph ph-map-pin text-blue-600 shrink-0"></i><span class="truncate" x-text="grp.stopName"></span>
+                      </p>
+                      <p class="text-[10px] text-slate-400 font-mono shrink-0" x-text="grp.stop"></p>
                     </div>
 
-                    <div class="mt-2 flex flex-col gap-1.5">
+                    <div class="mt-1.5 flex flex-col gap-1">
                       <template x-for="it in grp.items" :key="it.key">
-                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5">
-                          <div class="flex items-center justify-between gap-2">
-                            <p class="font-bold text-slate-900 flex items-center gap-1.5 min-w-0">
+                        <div class="rounded-lg border border-slate-200 bg-slate-50 px-2 py-1">
+                          <div class="flex items-start justify-between gap-2">
+                            <p class="text-sm font-bold text-slate-900 flex items-center gap-1.5 min-w-0">
                               <i class="ph ph-bus text-blue-600 shrink-0"></i>
                               <span x-text="it.route"></span>
-                              <span class="text-xs font-medium text-slate-500 truncate" x-text="'往 ' + it.dest_tc"></span>
+                              <span class="text-[11px] font-medium text-slate-500 truncate" x-text="'往 ' + it.dest_tc"></span>
                             </p>
-                            <div class="flex items-center gap-1 shrink-0">
-                              <button @click="setGroupOf(it.key, activeSection.gid === 'home' ? 'work' : 'home')"
-                                      :disabled="selRefreshing"
-                                      class="rounded bg-slate-200 hover:bg-slate-300 text-slate-600 text-[11px] px-1.5 py-0.5"
-                                      :title="'移到' + (activeSection.gid === 'home' ? '上班' : '回家')">
-                                <i :class="activeSection.gid === 'home' ? 'ph-briefcase' : 'ph-house'" class="ph text-xs"></i>
-                              </button>
-                              <button @click="removeSel(it.key)" :disabled="selRefreshing"
-                                      class="shrink-0 rounded bg-slate-200 hover:bg-red-100 text-slate-600 hover:text-red-600 text-[11px] px-1.5 py-0.5"
-                                      title="移除這條路線">
-                                <i class="ph ph-x text-sm"></i>
-                              </button>
-                            </div>
+                            <button @click="removeItem(it)" :disabled="selRefreshing"
+                                    class="shrink-0 rounded border border-slate-200 bg-white hover:bg-red-100 text-slate-400 hover:text-red-600 text-[11px] px-1 py-0.5"
+                                    title="移除此路線">
+                              <i class="ph ph-x text-xs"></i>
+                            </button>
                           </div>
 
-                          <div class="mt-1" x-show="it.loading">
-                            <p class="text-xs text-slate-400">⏳ 查詢實時到站中…</p>
+                          <div class="mt-0.5" x-show="it.loading">
+                            <p class="text-[11px] text-slate-400">⏳ 查詢實時到站中…</p>
                           </div>
-                          <div class="mt-1" x-show="it.error && !it.loading">
-                            <p class="text-xs text-amber-600" x-text="it.error"></p>
+                          <div class="mt-0.5" x-show="it.error && !it.loading">
+                            <p class="text-[11px] text-amber-600" x-text="it.error"></p>
                           </div>
 
                           <template x-if="!it.loading && !it.error">
-                            <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                            <div class="mt-1 grid grid-cols-3 gap-1">
                               <template x-for="(e, i) in it.etas" :key="it.key + '-' + i">
                                 <!-- 單一根元素：灰=僅第一班已開出；紅=第一個真正會到站；其餘=藍 -->
                                 <span :class="(i === 0 && e.mins < 0)
-                                      ? 'inline-flex items-baseline gap-1 rounded-md bg-gray-400 text-white px-1.5 py-0.5 text-xs font-semibold'
+                                      ? 'flex min-w-0 items-center justify-center gap-1 overflow-hidden whitespace-nowrap rounded-md bg-gray-400 text-white px-1 py-0.5 text-xs font-semibold'
                                       : (i === firstArrivingIdx(it.etas)
-                                          ? 'inline-flex items-center gap-1 rounded-md bg-red-600 text-white px-2 py-1 text-xs font-bold shadow ring-2 ring-red-300'
-                                          : 'inline-flex items-baseline gap-1 rounded-md bg-blue-600 text-white px-2 py-1 text-xs font-semibold')">
+                                          ? 'flex min-w-0 items-center justify-center gap-1 overflow-hidden whitespace-nowrap rounded-md bg-red-600 text-white px-1 py-1 text-xs font-bold shadow ring-2 ring-red-300'
+                                          : 'flex min-w-0 items-center justify-center gap-1 overflow-hidden whitespace-nowrap rounded-md bg-blue-600 text-white px-1 py-1 text-xs font-semibold')">
                                   <template x-if="i === 0 && e.mins < 0">
-                                    <span class="text-[10px] font-bold uppercase tracking-wide bg-gray-500 text-white rounded px-1 py-0.5">已開出</span>
+                                    <span class="hidden text-[10px] font-bold uppercase tracking-wide bg-gray-500 text-white rounded px-1 py-0.5 lg:inline">已開出</span>
                                   </template>
                                   <template x-if="i === firstArrivingIdx(it.etas) && !(i === 0 && e.mins < 0)">
-                                    <span class="text-[10px] font-bold uppercase tracking-wide bg-red-500 text-white rounded px-1 py-0.5">最早</span>
+                                    <span class="hidden text-[10px] font-bold uppercase tracking-wide bg-red-500 text-white rounded px-1 py-0.5 lg:inline">最早</span>
                                   </template>
                                   <span x-text="selMins(e.mins)"></span>
                                   <template x-if="!(i === 0 && e.mins < 0)">
@@ -195,32 +170,29 @@
         </template>
       </div>
     </template>
+	
+    <!-- Footer -->
+	<div>
+    <header class="mt-3 mb-1">
+      <h1 class="text-lg font-bold text-slate-900 flex items-center gap-1.5">
+        <i class="ph ph-star-fill text-blue-600"></i> 我的路線
+      </h1>
+      <p class="mt-1 text-xs text-slate-500 leading-relaxed">
+        你收藏的巴士路線，分成 <b class="text-slate-700">上班</b> 與 <b class="text-slate-700">回家</b> 兩個分類，每條顯示接下來 <b class="text-slate-700">3 班</b> 的實時到站時間（九巴 KMB）。
+        <span class="mx-1">·</span>
+        到 <a href="search.html" class="text-blue-600 underline inline-flex items-center gap-1"><i class="ph ph-bus"></i> 巴士站查詢</a> 搜尋車站並在路線 popup 中選「上班／回家」加入；分類同樣在 popup 中切換，移除請按該路線的 <b class="text-slate-700">✕</b>。
+      </p>
+    </header>	
+	</div>	
   </div>
 
+  <script src="app.js"></script>
   <script>
-    const API_BASE = '/api';
-
-    async function fetchJson(url, attempts = 3) {
-      let lastErr;
-      for (let i = 0; i < attempts; i++) {
-        try {
-          const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
-          if (!res.ok) throw new Error('HTTP ' + res.status);
-          return await res.json();
-        } catch (e) {
-          lastErr = e;
-          if (i < attempts - 1) await new Promise(r => setTimeout(r, 1200 * (i + 1)));
-        }
-      }
-      throw lastErr;
-    }
-
     function myRoutes() {
-      return {
+      return Object.assign({
         status: 'idle',
         error: '',
         updatedAt: '',
-        SEL_STORAGE_KEY: 'bustop.myRoutes.v1',
         selection: [],
         selRefreshing: false,
         // 目前選中的分類 tab（tabs 一次只顯示一個分類）
@@ -257,16 +229,9 @@
           return (this.groupSections || []).find(s => s.gid === this.activeGroup) || null;
         },
 
-        // 切換分類 tab
-        switchGroup(gid) {
-          if (gid === 'work' || gid === 'home') this.activeGroup = gid;
-        },
-
         // 某分類收錄的路線總數（tabs 上的計數）
         groupCount(gid) {
-          const sec = (this.groupSections || []).find(s => s.gid === gid);
-          if (!sec) return 0;
-          return sec.groups.reduce((n, g) => n + g.items.length, 0);
+          return this.selection.filter(it => it.group === gid).length;
         },
 
         // 該路線最早一班的到站分鐘數；無實時資料時視為無限大（排最後）
@@ -293,38 +258,6 @@
           if (this.selection.length) {
             await this.refreshSel();
           }
-        },
-
-        saveSelection() {
-          try {
-            const slim = this.selection.map(it => ({
-              key: it.key, stop: it.stop, stopName: it.stopName,
-              route: it.route, bound: it.bound, dest_tc: it.dest_tc, group: it.group
-            }));
-            localStorage.setItem(this.SEL_STORAGE_KEY, JSON.stringify(slim));
-          } catch (e) { }
-        },
-
-        restoreSelection() {
-          try {
-            const raw = localStorage.getItem(this.SEL_STORAGE_KEY);
-            if (!raw) return;
-            const arr = JSON.parse(raw);
-            if (!Array.isArray(arr)) return;
-            // 舊資料無 group 欄位，預設歸入「上班」
-            this.selection = arr.map(s => Object.assign({}, s, {
-              group: (s.group === 'work' || s.group === 'home') ? s.group : 'work',
-              etas: [], loading: false, error: ''
-            }));
-          } catch (e) { }
-        },
-
-        // 切換某一條路線的群組（上班 ⇄ 回家）
-        setGroupOf(key, gid) {
-          const it = this.selection.find(x => x.key === key);
-          if (!it || (gid !== 'work' && gid !== 'home')) return;
-          it.group = gid;
-          this.saveSelection();
         },
 
         async refreshOne(item) {
@@ -359,14 +292,9 @@
           this.updatedAt = this.formatTime(new Date());
         },
 
-        removeSel(key) {
-          this.selection = this.selection.filter(it => it.key !== key);
-          this.saveSelection();
-        },
-
-        // 一次移除該站全部已選路線
-        removeStop(stop) {
-          this.selection = this.selection.filter(it => it.stop !== stop);
+        // 移除單一路線（同一車站的其他路線保留）
+        removeItem(item) {
+          this.selection = this.selection.filter(it => it.key !== item.key);
           this.saveSelection();
         },
 
@@ -374,14 +302,8 @@
           if (mins < 0) return '已開出';
           if (mins === 0) return '即將到站';
           return mins + ' 分鐘';
-        },
-
-        formatTime(dt) {
-          if (!(dt instanceof Date) || isNaN(dt)) return '';
-          const p = n => String(n).padStart(2, '0');
-          return p(dt.getHours()) + ':' + p(dt.getMinutes());
         }
-      };
+      }, bustop);
     }
   </script>
 </body>
